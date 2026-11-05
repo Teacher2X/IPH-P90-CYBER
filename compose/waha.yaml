@@ -1,0 +1,41 @@
+# =============================================================================
+# compose/waha.yaml — Pont WhatsApp WAHA, P90 Launcher (A4) — MODULE FACULTATIF
+#
+# ⚠ AVERTISSEMENTS PÉDAGOGIQUES
+#   - WAHA n'est pas une solution officielle WhatsApp.
+#   - L'utilisation peut entraîner le blocage du numéro : utiliser un compte
+#     de démonstration DÉDIÉ, jamais un compte personnel ou d'élève.
+#   - Vérifier les conditions d'utilisation de WhatsApp avant l'activité.
+#   - Aucun envoi en masse. Aucun accès aux carnets de contacts.
+#   - Un seul contact de test autorisé par l'enseignant.
+#
+# Port 3001 en local uniquement : le dashboard ne doit PAS être exposé au LAN.
+# =============================================================================
+
+services:
+  waha:
+    image: devlikeapro/waha:latest
+    container_name: p90-waha
+    ports:
+      # Dashboard + API : accès local seulement (127.0.0.1), jamais 0.0.0.0
+      - "127.0.0.1:3001:3000"
+    volumes:
+      # Session WhatsApp persistante sur la clé USB
+      - "${P90_DATA_DIR:-$HOME/.p90-data}/waha-session:/app/.sessions"
+    environment:
+      # Instance unique, session expérimentale unique
+      - WHATSAPP_DEFAULT_ENGINE=WEBJS
+      # Webhooks désactivés par défaut (activés manuellement par l'enseignant)
+      - WAHA_DASHBOARD_USERNAME=p90
+      - WAHA_DASHBOARD_PASSWORD=${P90_WAHA_PASSWORD:?mot de passe requis}
+      - WHATSAPP_HOOK_URL=
+      # Les messages ne sont pas journalisés en clair
+      - WAHA_LOG_LEVEL=warn
+    restart: unless-stopped
+    networks:
+      - p90-net
+
+networks:
+  p90-net:
+    name: p90-network
+    external: true
