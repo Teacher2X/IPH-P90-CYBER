@@ -335,6 +335,62 @@ fi
 grep -q '02-ollama-poc.md' "$ROOT/README.md" && t_ok "README pointe la fiche étape 2" || t_fail "README ne pointe pas la fiche"
 
 # ---------------------------------------------------------------------------
+section "13. Étape 3 — partage réseau d'Ollama"
+# ---------------------------------------------------------------------------
+S3="$ROOT/launcher/03-share-ollama.sh"
+[[ -f "$S3" ]] && t_ok "script 03 présent" || t_fail "script 03 absent"
+for code in '0 = PASS' '1 = FAIL' '2 = À CONFIRMER'; do
+    grep -q "$code" "$S3" && t_ok "code retour documenté : $code" || t_fail "code retour non documenté : $code"
+done
+
+# OLLAMA_HOST doit passer sur 0.0.0.0, mais JAMAIS dans l'unité d'installation (étape 2)
+grep -q 'OLLAMA_HOST=0.0.0.0' "$S3" && t_ok "partage : écoute sur 0.0.0.0" || t_fail "OLLAMA_HOST non élargi"
+grep -q 'OLLAMA_HOST=127.0.0.1' "$ROOT/launcher/02-install-ollama.sh" \
+    && t_ok "étape 2 conserve une écoute locale" || t_fail "étape 2 n'est plus locale"
+
+# Filtrage réellement présent ET restriction effective
+grep -q 'table inet' "$S3" && t_ok "règle nftables générée" || t_fail "aucune règle nftables"
+grep -q 'tcp dport ${PORT} drop' "$S3" && t_ok "règle de rejet présente" || t_fail "aucune règle de rejet"
+grep -q 'ip saddr @allowed_ipv4 accept' "$S3" && t_ok "accept limité au jeu d'adresses" || t_fail "accept non restreint"
+
+# Garde-fous de restriction
+grep -q 'préfixe >= /16' "$S3" && t_ok "garde-fou : plage trop large refusée" || t_fail "pas de garde-fou sur /0"
+grep -q 'is_ipv4' "$S3" && t_ok "validation IPv4/CIDR présente" || t_fail "pas de validation d'adresse"
+
+# Le modèle ne doit PAS être retéléchargé par cette étape
+grep -qE '(\$BIN|ollama) pull' "$S3" \
+    && t_fail "l'étape 3 lance un pull (interdit : aucun téléchargement)" \
+    || t_ok "aucun téléchargement de modèle dans l'étape 3"
+
+# Preuve distante obligatoire pour un PASS ; pas de PASS déguisé
+grep -q 'remote-test' "$S3" && t_ok "test distant supporté" || t_fail "aucun test distant"
+grep -q 'génération distante NON testée' "$S3" \
+    && t_ok "absence de preuve distante signalée" || t_fail "absence de preuve non signalée"
+
+# Aucun joker CORS, aucun redémarrage, aucune écriture sur disque interne
+grep -q 'OLLAMA_ORIGINS=http://127.0.0.1,http://localhost,http://' "$S3" \
+    && t_ok "ORIGINS explicites (sans joker)" || t_skip "forme des ORIGINS à revoir"
+grep -qE '(^|[^a-z])reboot|shutdown' "$S3" && t_fail "redémarrage machine demandé" || t_ok "aucun redémarrage machine"
+grep -qE 'mkfs|fdisk|parted|dd ' "$S3" && t_fail "commande de partitionnement détectée" || t_ok "aucun partitionnement"
+
+# Déclaration dans la source unique + résolution CLI/YAD
+grep -q '3|03-share-ollama.sh' "$ROOT/config/p90.conf" && t_ok "étape 3 déclarée dans config/p90.conf" || t_fail "étape 3 non déclarée"
+if bash -c "source '$ROOT/lib/common.sh'; [[ \"\$(p90_check_script_of 3)\" == '03-share-ollama.sh' ]]"; then
+    t_ok "p90 check 3 résout le script de l'étape 3"
+else
+    t_fail "p90 check 3 ne résout pas le script de l'étape 3"
+fi
+
+D3="$ROOT/docs/etapes/03-partage-reseau.md"
+if [[ -s "$D3" ]] && (( $(wc -l < "$D3") > 40 )); then
+    t_ok "doc étape 3 présente ($(wc -l < "$D3") lignes)"
+else
+    t_fail "doc étape 3 absente ou trop courte"
+fi
+grep -q '03-partage-reseau.md' "$ROOT/README.md" && t_ok "README pointe la fiche étape 3" || t_fail "README ne pointe pas la fiche 3"
+
+
+# ---------------------------------------------------------------------------
 # Résumé
 # ---------------------------------------------------------------------------
 printf '\n%s================ RÉSULTAT ================%s\n' "$c_bold" "$c_reset"

@@ -49,6 +49,7 @@ p90
 | `p90 check` | Lister les contrôles d'installation numérotés |
 | `p90 check 1` | Vérifier la persistance de la clé USB |
 | `p90 check 2` | Installer et tester Ollama (POC CPU) |
+| `p90 check 3` | Partager Ollama sur le réseau (LAN) |
 
 ## Étapes d'installation validées
 
@@ -60,6 +61,7 @@ Une seule source déclare les étapes : `config/p90.conf`.
 |---|-------|--------|-------|------|
 | 1 | Persistance de la clé USB | `launcher/01-usb-persistence.sh` | [docs/etapes/01-persistance-usb.md](docs/etapes/01-persistance-usb.md) | validée sur clé USB |
 | 2 | Ollama + modèle POC (CPU) | `launcher/02-install-ollama.sh` | [docs/etapes/02-ollama-poc.md](docs/etapes/02-ollama-poc.md) | validée sur poste réel |
+| 3 | Partage Ollama sur le réseau | `launcher/03-share-ollama.sh` | [docs/etapes/03-partage-reseau.md](docs/etapes/03-partage-reseau.md) | script validé, application à faire |
 
 ### Étape 2 en bref
 
@@ -98,6 +100,7 @@ p90-launcher/
 │   ├── gui.sh         # Interface graphique YAD
 │   ├── 01-usb-persistence.sh   # Étape 1 : persistance de la clé USB
 │   ├── 02-install-ollama.sh    # Étape 2 : Ollama + modèle POC (CPU)
+│   ├── 03-share-ollama.sh      # Étape 3 : partage Ollama sur le LAN
 │   ├── diagnose.sh    # Diagnostic système
 │   └── p90.desktop    # Raccourci bureau
 ├── lib/               # Bibliothèques de fonctions
@@ -117,7 +120,8 @@ p90-launcher/
 ├── docs/              # Documentation pédagogique
 │   ├── etapes/        # Une fiche par étape d'installation
 │   │   ├── 01-persistance-usb.md
-│   │   └── 02-ollama-poc.md
+│   │   ├── 02-ollama-poc.md
+│   │   └── 03-partage-reseau.md
 │   ├── enseignant.md
 │   ├── A1-ollama.md
 │   ├── A2-openwebui.md
