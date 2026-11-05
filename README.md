@@ -46,6 +46,42 @@ p90
 | `p90 update` | Vérifier les mises à jour disponibles |
 | `p90 repair A1` | Réparer le module A1 |
 | `p90 install A2` | Installer un module spécifique |
+| `p90 check` | Lister les contrôles d'installation numérotés |
+| `p90 check 1` | Vérifier la persistance de la clé USB |
+| `p90 check 2` | Installer et tester Ollama (POC CPU) |
+
+## Étapes d'installation validées
+
+Chaque étape est un script autonome de `launcher/`, exécuté à l'identique par le
+menu terminal (`p90 check N`) et par l'interface graphique (bouton *Contrôles*).
+Une seule source déclare les étapes : `config/p90.conf`.
+
+| # | Étape | Script | Fiche | État |
+|---|-------|--------|-------|------|
+| 1 | Persistance de la clé USB | `launcher/01-usb-persistence.sh` | [docs/etapes/01-persistance-usb.md](docs/etapes/01-persistance-usb.md) | validée sur clé USB |
+| 2 | Ollama + modèle POC (CPU) | `launcher/02-install-ollama.sh` | [docs/etapes/02-ollama-poc.md](docs/etapes/02-ollama-poc.md) | validée sur poste réel |
+
+### Étape 2 en bref
+
+Ollama **0.3.6** (binaire CPU de 559 Mo), modèle **`qwen2.5:0.5b`** (380 Mo),
+service `systemd` actif sur `127.0.0.1:11434`, génération mesurée à
+**~42 tokens/s** sur i5-10210U.
+
+```bash
+p90 check 2
+```
+
+> **Limites du stockage USB.** Le fichier de persistance `rootfs` ne fait que
+> 3 Go. L'étape 2 consomme ~940 Mo ; il reste ~909 Mo libres après
+> installation. La version 0.3.6 est **épinglée volontairement** : depuis 0.3.7,
+> l'archive officielle embarque les moteurs GPU et pèse ~1,5 Go compressés
+> (~2 Go installés), ce qui ne tient pas sur la clé. Aucune partition n'est
+> créée, agrandie ou modifiée par le script.
+>
+> **Limite du modèle 0.5B.** À l'échantillonnage par défaut, `qwen2.5:0.5b`
+> répond faux environ une fois sur trois sur un calcul simple (« 14 » au lieu
+> de « 4 »). À température 0 la réponse est reproductible : c'est la mesure
+> retenue comme verdict. Détail dans la fiche de l'étape.
 
 ## Structure du dépôt
 
@@ -60,6 +96,8 @@ p90-launcher/
 ├── launcher/          # Lanceur et utilitaires
 │   ├── p90            # Commande principale (appelé par les sous-commandes)
 │   ├── gui.sh         # Interface graphique YAD
+│   ├── 01-usb-persistence.sh   # Étape 1 : persistance de la clé USB
+│   ├── 02-install-ollama.sh    # Étape 2 : Ollama + modèle POC (CPU)
 │   ├── diagnose.sh    # Diagnostic système
 │   └── p90.desktop    # Raccourci bureau
 ├── lib/               # Bibliothèques de fonctions
@@ -77,6 +115,9 @@ p90-launcher/
 │   ├── openwebui.yaml
 │   └── waha.yaml
 ├── docs/              # Documentation pédagogique
+│   ├── etapes/        # Une fiche par étape d'installation
+│   │   ├── 01-persistance-usb.md
+│   │   └── 02-ollama-poc.md
 │   ├── enseignant.md
 │   ├── A1-ollama.md
 │   ├── A2-openwebui.md

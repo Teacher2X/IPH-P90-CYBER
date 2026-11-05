@@ -267,6 +267,74 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+section "12. Étape 2 — Ollama (POC CPU)"
+# ---------------------------------------------------------------------------
+S2="$ROOT/launcher/02-install-ollama.sh"
+if [[ -f "$S2" ]]; then
+    t_ok "script 02 présent"
+    # Codes de retour documentés
+    for c in "0 = PASS" "1 = FAIL" "2 = À CONFIRMER"; do
+        grep -qF "$c" "$S2" && t_ok "code retour documenté : $c" || t_fail "code retour non documenté : $c"
+    done
+    # Empreinte du binaire épinglée (pas de « dernière version » implicite)
+    grep -qE '^OLLAMA_SHA256=|P90_OLLAMA_SHA256' "$S2" \
+        && t_ok "SHA256 du binaire épinglée" || t_fail "SHA256 non épinglée"
+    grep -qE 'P90_OLLAMA_VERSION:-' "$S2" \
+        && t_ok "version Ollama demandée explicitement" || t_fail "version non épinglée"
+    # Contrôles exigés par le cahier des charges
+    grep -q 'sha256sum' "$S2" && t_ok "contrôle d'empreinte avant extraction" || t_fail "pas de contrôle d'empreinte"
+    grep -q 'MIN_FREE_MB' "$S2" && t_ok "seuil d'espace libre vérifié" || t_fail "pas de seuil d'espace"
+    grep -q 'BACK_TRAN' "$S2" && t_ok "persistance vérifiée par transport USB" || t_fail "persistance non vérifiée"
+    grep -q '127\.0\.0\.1' "$S2" && t_ok "écoute limitée à 127.0.0.1" || t_fail "pas de restriction d'écoute"
+    grep -q 'systemctl enable' "$S2" && t_ok "démarrage automatique configuré" || t_fail "démarrage auto absent"
+    # Idempotence : garde-fous avant réinstallation / re-téléchargement
+    grep -q 'déjà présent' "$S2" && t_ok "garde-fou : réutilisation si déjà installé" || t_fail "pas de garde-fou de réinstallation"
+    grep -q 'Modèle déjà présent' "$S2" && t_ok "garde-fou : modèle non retéléchargé" || t_fail "modèle retéléchargé à chaque fois"
+    # Interdits
+    if grep -qE '\b(mkfs|sfdisk|parted|fdisk|wipefs)\b' "$S2"; then
+        t_fail "commande de partitionnement/formatage présente"
+    else
+        t_ok "aucune commande de formatage ou de partitionnement"
+    fi
+    if grep -qE '\breboot\b|shutdown' "$S2"; then
+        t_fail "redémarrage automatique présent (interdit)"
+    else
+        t_ok "aucun redémarrage automatique"
+    fi
+    grep -q 'CUDA\|rocm' "$S2" && t_skip "mention GPU présente (vérifier qu'elle n'installe rien)" || t_ok "aucune dépendance GPU"
+    # Le verdict doit exiger une génération réelle, pas un simple téléchargement
+    grep -q 'api/generate' "$S2" && t_ok "génération réelle testée via /api/generate" || t_fail "aucun test de génération API"
+    grep -q 'verdict_reponse' "$S2" && t_ok "verdict sémantique sur la réponse" || t_fail "verdict absent"
+else
+    t_fail "script 02 absent"
+fi
+
+# Déclaration dans la source unique des étapes
+if grep -q '2|02-install-ollama.sh' "$ROOT/config/p90.conf"; then
+    t_ok "étape 2 déclarée dans config/p90.conf"
+else
+    t_fail "étape 2 non déclarée dans config/p90.conf"
+fi
+
+# CLI et GUI résolvent le MÊME script (pas de duplication de commandes)
+if bash -c "source '$ROOT/lib/common.sh'; [[ \"\$(p90_check_script_of 2)\" == '02-install-ollama.sh' ]]"; then
+    t_ok "p90 check 2 résout le script de l'étape 2"
+else
+    t_fail "p90 check 2 ne résout pas le script de l'étape 2"
+fi
+grep -q 'run_check_step' "$ROOT/launcher/gui.sh" \
+    && t_ok "menu YAD délègue au même script" || t_fail "menu YAD ne délègue pas"
+
+# Documentation de l'étape
+D2="$ROOT/docs/etapes/02-ollama-poc.md"
+if [[ -s "$D2" ]] && (( $(wc -l < "$D2") > 40 )); then
+    t_ok "doc étape 2 présente ($(wc -l < "$D2") lignes)"
+else
+    t_fail "doc étape 2 absente ou trop courte"
+fi
+grep -q '02-ollama-poc.md' "$ROOT/README.md" && t_ok "README pointe la fiche étape 2" || t_fail "README ne pointe pas la fiche"
+
+# ---------------------------------------------------------------------------
 # Résumé
 # ---------------------------------------------------------------------------
 printf '\n%s================ RÉSULTAT ================%s\n' "$c_bold" "$c_reset"

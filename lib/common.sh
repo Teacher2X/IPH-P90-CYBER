@@ -238,6 +238,22 @@ p90_ensure_data_dir() {
     fi
 }
 
+# --- Résumé de l'étape 2 (Ollama) pour l'affichage du menu ---
+# N'invente aucun verdict : lit l'état réel du service, la liste des modèles et
+# l'espace libre. Sert uniquement à l'affichage, jamais à décider d'un PASS.
+p90_ollama_summary() {
+    local bin=/usr/local/bin/ollama active q model free
+    if [[ ! -x "$bin" ]]; then
+        echo "Ollama : non installé"
+        return 0
+    fi
+    active="$(systemctl is-active ollama 2>/dev/null || echo inconnu)"
+    q="$(ss -lnt 2>/dev/null | awk '$4 ~ /:11434$/ {print $4}' | head -1)"
+    model="$("$bin" list 2>/dev/null | awk 'NR>1 && NF{print $1}' | head -1)"
+    free="$(df -Pm / 2>/dev/null | awk 'NR==2{print $4}')"
+    echo "Ollama : service=${active}${q:+ (${q})} · modèle=${model:-aucun} · libre sur /=${free:-?} Mo"
+}
+
 # --- Étapes d'installation (source unique : config/p90.conf) ---
 # Renvoie une ligne par étape : numéro|script|libellé. Le menu terminal et le
 # menu YAD consomment tous deux cette fonction : impossible qu'ils divergent.
