@@ -8,7 +8,17 @@
 set -uo pipefail
 
 # --- Racine du projet, quel que soit le répertoire courant ---
-P90_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Le lanceur est souvent atteint via un lien symbolique (install.sh crée
+# ~/.local/bin/p90) : on résout d'abord le lien, sinon dirname donnerait le
+# répertoire du lien et P90_ROOT pointerait hors du dépôt.
+_p90_self="${BASH_SOURCE[0]}"
+while [[ -L "${_p90_self}" ]]; do
+    _p90_link="$(readlink "${_p90_self}")"
+    [[ "${_p90_link}" == /* ]] || _p90_link="$(dirname "${_p90_self}")/${_p90_link}"
+    _p90_self="${_p90_link}"
+done
+P90_ROOT="$(cd "$(dirname "${_p90_self}")/.." && pwd)"
+unset _p90_self _p90_link
 export P90_INSTALL_DIR="${P90_INSTALL_DIR:-$P90_ROOT}"
 source "${P90_ROOT}/lib/common.sh"
 
