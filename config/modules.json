@@ -1,0 +1,50 @@
+{
+  "modules": {
+    "A1-ollama": {
+      "name": "Ollama Terminal",
+      "desc": "Assistant IA local dans le terminal — découvrir un LLM sans cloud ni navigateur",
+      "priority": 1,
+      "requires_root": false,
+      "has_docker": false,
+      "min_ram_mb": 4096,
+      "disk_mb": 4096
+    },
+    "A2-openwebui": {
+      "name": "OpenWebUI et Réseau",
+      "desc": "Chat web local + Angry IP Scanner pour découvrir les machines du réseau pédagogique",
+      "priority": 2,
+      "requires_root": false,
+      "has_docker": true,
+      "min_ram_mb": 4096,
+      "disk_mb": 2048
+    },
+    "A3-hermes": {
+      "name": "Hermes Agent",
+      "desc": "Agent capable d'exécuter des actions — distinguer discuter et agir",
+      "priority": 3,
+      "requires_root": false,
+      "has_docker": false,
+      "min_ram_mb": 2048,
+      "disk_mb": 5120
+    },
+    "A4-whatsapp": {
+      "name": "Pont WhatsApp",
+      "desc": "Envoyer un message à un assistant IA depuis WhatsApp (module facultatif)",
+      "priority": 4,
+      "requires_root": false,
+      "has_docker": true,
+      "min_ram_mb": 2048,
+      "disk_mb": 1024,
+      "optional": true
+    },
+    "A5-memory-rag": {
+      "name": "Profils, Mémoire et RAG",
+      "desc": "Configurer Hermes avec profils pédagogiques, mémoire durable et recherche documentaire",
+      "priority": 5,
+      "requires_root": false,
+      "has_docker": false,
+      "min_ram_mb": 2048,
+      "disk_mb": 1024
+    }
+  }
+}

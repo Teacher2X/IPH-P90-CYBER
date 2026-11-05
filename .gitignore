@@ -1,0 +1,55 @@
+# ---- Données utilisateur P90 (jamais versionnées) ----
+.p90-data/
+**/.p90-data/
+*.state
+modules/*.state
+models/
+waha-session/
+openwebui/
+documents-pedagogiques/
+index-rag/
+hermes-workspace/
+
+# ---- Fichiers de données génériques ----
+*.dat
+*.db
+*.sqlite
+session/
+data/
+
+# ---- Fichiers temporaires ----
+*.tmp
+*.swp
+*~
+.~*
+
+# ---- Logs ----
+*.log
+logs/
+
+# ---- Rapports de diagnostic générés ----
+rapport*.txt
+
+# ---- Clés privées (jamais les clés publiques) ----
+id_rsa
+id_ed25519
+*.pem
+*.key
+
+# ---- Secrets et configuration sensible ----
+*.secrets.conf
+secrets.conf
+.env
+.env.*
+
+# ---- Sauvegardes de mise à jour ----
+*.bak.*
+tmp_update_*
+
+# ---- IDE ----
+.vscode/
+.idea/
+
+# ---- OS ----
+.DS_Store
+Thumbs.db

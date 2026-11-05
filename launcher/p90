@@ -1,0 +1,251 @@
+#!/usr/bin/env bash
+# =============================================================================
+# launcher/p90 — Point d'entrée principal P90 Launcher
+#
+# Commandes : p90 | p90 status | p90 doctor | p90 update | p90 repair <module>
+# =============================================================================
+
+set -uo pipefail
+
+# --- Racine du projet, quel que soit le répertoire courant ---
+P90_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+export P90_INSTALL_DIR="${P90_INSTALL_DIR:-$P90_ROOT}"
+source "${P90_ROOT}/lib/common.sh"
+
+usage() {
+    cat <<EOF
+P90 Launcher v${P90_VERSION} — Environnement Pédagogique Modulaire
+
+Syntaxe : p90 [commande] [arguments]
+
+Commandes :
+  (sans argument)          →  Interface graphique YAD
+  status                   →  État des cinq modules
+  doctor [--file <fichier>]→  Diagnostic matériel, réseau et modules
+  update [--apply]         →  Vérifie / applique une mise à jour validée
+  install <module_id>      →  Installe un module (A1-ollama … A5-memory-rag)
+  repair <module_id>       →  Répare un module sans perdre les données
+  run <module_id>          →  Lance l'activité pédagogique du module
+  check <étape>            →  Contrôle d'installation numéroté (voir ci-dessous)
+  version                  →  Version installée
+  help                     →  Cette aide
+
+Étapes d'installation (p90 check <numéro>) :
+  1                        →  Vérifier la persistance de la clé USB
+
+Exemples :
+  p90
+  p90 status
+  p90 check 1
+  p90 doctor --file /tmp/rapport.txt
+  p90 install A1-ollama
+  p90 repair A3-hermes
+
+Données utilisateur (persistantes, sur la clé USB) : ${P90_DATA_DIR}
+EOF
+}
+
+# --- Résolution d'un identifiant de module ---
+# Accepte "A1", "A1-ollama", "a1-ollama" ; renvoie le nom de fichier complet.
+resolve_module() {
+    local input="$1"
+    [[ -n "$input" ]] || return 1
+    local base="${input,,}"
+
+    # Correspondance exacte du fichier
+    local f
+    for f in "${P90_ROOT}"/modules/*.sh; do
+        [[ -f "$f" ]] || continue
+        local id; id="$(basename "$f" .sh)"
+        if [[ "${id,,}" == "$base" ]]; then echo "$id"; return 0; fi
+    done
+    # Correspondance sur le préfixe (A1 → A1-ollama)
+    for f in "${P90_ROOT}"/modules/*.sh; do
+        [[ -f "$f" ]] || continue
+        local id; id="$(basename "$f" .sh)"
+        if [[ "${id,,}" == "$base"-* ]]; then echo "$id"; return 0; fi
+    done
+    return 1
+}
+
+# --- Charger un module et exécuter une de ses actions ---
+run_module_action() {
+    local input="$1" action="$2"
+    local id
+    id="$(resolve_module "$input")" || {
+        p90_err "Module inconnu : '${input}' (attendu : A1..A5 ou nom complet)"
+        return 1
+    }
+    local file="${P90_ROOT}/modules/${id}.sh"
+    export P90_ROOT
+
+    # Exécuter dans un sous-shell : le module définit ses propres paramètres
+    bash "$file" "$action"
+}
+
+cmd_status() {
+    echo "=== État des modules P90 (v${P90_VERSION}) ==="
+    local f id state_file state
+    for f in "${P90_ROOT}"/modules/*.sh; do
+        [[ -f "$f" ]] || continue
+        id="$(basename "$f" .sh)"
+        state_file="${P90_DATA_DIR}/modules/${id}.state"
+        if [[ -f "$state_file" ]]; then
+            state="$(cat "$state_file")"
+        else
+            state="absent"
+        fi
+        printf '  %-16s : %s\n' "$id" "$state"
+    done
+}
+
+cmd_doctor() {
+    local outfile="${1:-}"
+    if [[ -n "$outfile" ]]; then
+        exec > >(tee "$outfile")
+    fi
+
+    echo "============================================================"
+    echo "|        DIAGNOSTIC P90 Launcher v${P90_VERSION}           |"
+    echo "============================================================"
+    echo "Date        : $(date '+%Y-%m-%d %H:%M:%S')"
+    echo "Utilisateur : $(whoami)"
+    echo "Poste       : $(hostname 2>/dev/null || echo 'inconnu')"
+    echo "Racine      : ${P90_ROOT}"
+    echo "Données     : ${P90_DATA_DIR}"
+    echo ""
+
+    source "${P90_ROOT}/lib/checks.sh"
+    echo "--- Matériel ---"
+    check_ram; check_cpu; check_disk
+    echo ""
+    echo "--- Réseau ---"
+    check_network
+    echo ""
+    echo "--- Adressage ---"
+    local localip; localip="$(p90_local_ip)"
+    if [[ -n "$localip" ]]; then
+        echo "  Adresse locale : $localip"
+    else
+        echo "  (aucune adresse détectée)"
+    fi
+    echo ""
+    echo "--- Dépendances ---"
+    for dep in docker git curl python3 yad ollama hermes; do
+        if command -v "$dep" >/dev/null 2>&1; then
+            printf '  %-8s : présent\n' "$dep"
+        else
+            printf '  %-8s : absent\n' "$dep"
+        fi
+    done
+    echo ""
+    echo "--- Modules ---"
+    cmd_status
+    echo ""
+    echo "--- Fin du rapport ---"
+    [[ -n "$outfile" ]] && echo "Rapport enregistré dans : ${outfile}"
+}
+
+cmd_update() {
+    source "${P90_ROOT}/lib/update.sh"
+    case "${1:-}" in
+        --apply) apply_update ;;
+        *)       check_update_remote ;;
+    esac
+}
+
+# --- Contrôles d'installation numérotés --------------------------------------
+# Chaque étape est un script autonome de launcher/ ; le menu n'invente rien et
+# n'affiche jamais PASS sans que le script l'ait réellement établi.
+# La liste vient de config/p90.conf (P90_CHECK_STEPS) via p90_check_steps :
+# le menu terminal et le menu YAD lisent donc la même source, sans duplication.
+_checks_available() {
+    p90_check_steps | cut -d'|' -f1 | sort -n | paste -sd' ' -
+}
+
+cmd_check() {
+    local step="${1:-}"
+    if [[ -z "$step" ]]; then
+        echo "=== Contrôles d'installation P90 ==="
+        local num _scr _lbl
+        while IFS='|' read -r num _scr _lbl; do
+            printf '  %s — %s\n' "$num" "$_lbl"
+        done < <(p90_check_steps)
+        echo ""
+        echo "Usage : p90 check <numéro>"
+        return 0
+    fi
+    local _script_name
+    if ! _script_name="$(p90_check_script_of "$step")"; then
+        p90_err "Étape inconnue : '${step}'"
+        p90_info "Étapes disponibles : $(_checks_available)"
+        return 1
+    fi
+    local script="${P90_ROOT}/launcher/${_script_name}"
+    if [[ ! -f "$script" ]]; then
+        p90_err "Script d'étape introuvable : ${script}"
+        return 1
+    fi
+    bash "$script" "${@:2}"
+}
+
+# --- Initialisation des données (jamais destructive) ---
+p90_ensure_data_dir
+mkdir -p "${P90_DATA_DIR}/modules" "${P90_DATA_DIR}/logs"
+
+# --- Répartition des commandes ---
+case "${1:-}" in
+    "" )
+        if p90_gui_available; then
+            exec bash "${P90_ROOT}/launcher/gui.sh"
+        else
+            p90_warn "YAD n'est pas installé : interface graphique indisponible."
+            p90_info "Installez-le : sudo apt install yad"
+            echo ""
+            cmd_status
+            echo ""
+            p90_info "Aide complète : p90 help"
+        fi
+        ;;
+    status)                 cmd_status ;;
+    doctor)
+        shift
+        case "${1:-}" in
+            --file) cmd_doctor "${2:-}" ;;
+            "")     cmd_doctor ;;
+            *)      p90_err "Usage : p90 doctor [--file <fichier>]"; exit 1 ;;
+        esac
+        ;;
+    update)
+        shift
+        cmd_update "${1:-}"
+        ;;
+    install)
+        shift
+        run_module_action "${1:-}" install
+        ;;
+    repair)
+        shift
+        run_module_action "${1:-}" repair
+        ;;
+    run|launch)
+        shift
+        run_module_action "${1:-}" launch
+        ;;
+    check)
+        shift
+        cmd_check "${1:-}" "${@:2}"
+        ;;
+    version|-v|--version)
+        echo "P90 Launcher v${P90_VERSION}"
+        ;;
+    help|-h|--help)
+        usage
+        ;;
+    *)
+        p90_err "Commande inconnue : '$1'"
+        echo ""
+        usage
+        exit 1
+        ;;
+esac

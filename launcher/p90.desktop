@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Name=P90 Launcher
+Comment=Environnement Pédagogique Modulaire — 15-18 ans
+Exec=/opt/p90-launcher/launcher/p90
+Icon=system-run
+Terminal=true
+Type=Application
+Categories=Education;Development;
+Keywords=IA;Linux;Réseau;Ollama;OpenWebUI;Hermes;
+Name[fr]=P90 Launcher

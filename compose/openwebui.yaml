@@ -1,0 +1,53 @@
+# =============================================================================
+# compose/openwebui.yaml — OpenWebUI + Ollama, P90 Launcher (A2)
+#
+# Services :
+#   - openwebui : interface web sur 0.0.0.0:3000, auth native obligatoire
+#   - ollama    : backend local, port NON publié sur le LAN (interne seulement)
+#
+# Volumes persistants : montés depuis P90_DATA_DIR (clé USB)
+# =============================================================================
+
+services:
+  openwebui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: p90-openwebui
+    ports:
+      # Écoute sur toutes les interfaces : accès LAN pédagogique (pare-feu à la charge de l'enseignant)
+      - "0.0.0.0:3000:8080"
+    volumes:
+      # Données persistantes sur la clé USB (conversations, comptes, réglages)
+      - "${P90_DATA_DIR:-$HOME/.p90-data}/openwebui:/app/backend/data"
+    environment:
+      # Authentification native OBLIGATOIRE — ne jamais désactiver
+      - WEBUI_AUTH=true
+      # Connexion au moteur Ollama interne (service name, pas d'exposition LAN)
+      - OLLAMA_BASE_URL=http://ollama:11434
+      # Pas de télémétrie ni d'API externe
+      - ENABLE_OPENAI_API=false
+      - OFFLINE_MODE=true
+      - WEBUI_ANONYMOUS=false
+    depends_on:
+      - ollama
+    restart: unless-stopped
+    networks:
+      - p90-net
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: p90-ollama
+    # AUCUN ports: publié — Ollama n'est PAS accessible depuis le LAN
+    volumes:
+      # Modèles persistants sur la clé USB
+      - "${P90_DATA_DIR:-$HOME/.p90-data}/models:/root/.ollama"
+    environment:
+      # Écoute uniquement sur le réseau interne Docker
+      - OLLAMA_HOST=0.0.0.0:11434
+    restart: unless-stopped
+    networks:
+      - p90-net
+
+networks:
+  p90-net:
+    name: p90-network
+    driver: bridge
