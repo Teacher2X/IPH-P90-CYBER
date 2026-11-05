@@ -196,7 +196,17 @@ cmd_check() {
         p90_err "Script d'étape introuvable : ${script}"
         return 1
     fi
-    bash "$script" "${@:2}"
+    # L'étape 2 est longue (téléchargements) : son verdict est mémorisé pour
+    # que le menu puisse afficher modèle et espace restant sans relancer.
+    local rc=0
+    bash "$script" "${@:2}" || rc=$?
+    if [[ "$step" == "2" ]]; then
+        local state="${P90_DATA_DIR}/steps/2.state"
+        mkdir -p "$(dirname "$state")" 2>/dev/null
+        p90_ollama_summary > "$state" 2>/dev/null || true
+        [[ -s "$state" ]] && cat "$state"
+    fi
+    return $rc
 }
 
 # --- Initialisation des données (jamais destructive) ---

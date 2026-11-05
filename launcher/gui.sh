@@ -134,9 +134,10 @@ menu_checks() {
         fi
 
         local pick rc_c
+        local summary; summary="$(p90_ollama_summary 2>/dev/null)"
         pick=$(printf '%s' "$rows_c" | yad --list \
             --title="Contrôles d'installation" \
-            --text="<b>Sélectionnez un contrôle à exécuter.</b>" \
+            --text="<b>Sélectionnez un contrôle à exécuter.</b>\n<tt>${summary}</tt>" \
             --column="N°" --column="Contrôle" \
             --width=620 --height=280 --center \
             --print-column=1 --separator="|" \
