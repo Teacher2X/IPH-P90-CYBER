@@ -389,6 +389,58 @@ else
 fi
 grep -q '03-partage-reseau.md' "$ROOT/README.md" && t_ok "README pointe la fiche étape 3" || t_fail "README ne pointe pas la fiche 3"
 
+# ---------------------------------------------------------------------------
+section "14. Étape 4 — Hollama (client IA)"
+# ---------------------------------------------------------------------------
+S4="$ROOT/launcher/04-install-hollama.sh"
+[[ -f "$S4" ]] && t_ok "script 04 présent" || t_fail "script 04 absent"
+for code in '0 = PASS' '1 = FAIL' '2 = BLOCKED'; do
+    grep -q "$code" "$S4" && t_ok "code retour documenté : $code" || t_fail "code retour non documenté : $code"
+done
+
+# Installation dans le compte utilisateur, sans root
+grep -q '\.local/opt/hollama' "$S4" && t_ok "installation dans \$HOME (sans root)" || t_fail "chemin d'installation inattendu"
+grep -qE '(^|[^a-z])sudo ' "$S4" && t_fail "le script appelle sudo alors qu'il doit être sans root" || t_ok "aucun appel à sudo"
+
+# Intégrité du téléchargement
+grep -q 'HSHA=' "$S4" && t_ok "empreinte SHA-256 épinglée" || t_fail "aucune empreinte"
+grep -q 'sha256sum' "$S4" && t_ok "contrôle d'empreinte effectué" || t_fail "empreinte non contrôlée"
+grep -q 'GOT" != "$HSHA' "$S4" && t_ok "refus si empreinte différente" || t_fail "pas de refus sur empreinte"
+
+# Aucun nouveau modèle téléchargé par cette étape
+grep -qE 'ollama pull|/api/pull' "$S4" && t_fail "l'étape 4 télécharge un modèle (interdit)" || t_ok "aucun téléchargement de modèle"
+
+# Garde-fous de sécurité
+grep -qE '(^|[^a-z])reboot|shutdown' "$S4" && t_fail "redémarrage machine demandé" || t_ok "aucun redémarrage machine"
+grep -qE 'mkfs|fdisk|parted|dd ' "$S4" && t_fail "commande de partitionnement détectée" || t_ok "aucun partitionnement"
+grep -qE 'grub|efibootmgr' "$S4" && t_fail "modification du chargeur détectée" || t_ok "aucune modification GRUB/EFI"
+grep -qE 'docker' "$S4" && t_fail "Docker mentionné dans l'étape 4" || t_ok "aucun Docker"
+
+# Idempotence : pas de réinstallation si la version correspond
+grep -q 'déjà installé' "$S4" && t_ok "garde-fou de réutilisation présent" || t_fail "pas de réutilisation"
+grep -q 'VER_INSTALLED" == "\$HVER' "$S4" && t_ok "comparaison de version avant réinstallation" || t_skip "comparaison de version à revoir"
+
+# Lanceur graphique réel : icône extraite et vérifiée, catégorie unique
+grep -q 'app.asar' "$S4" && t_ok "icône extraite de app.asar" || t_fail "icône non extraite"
+grep -q 'x89PNG' "$S4" && t_ok "signature PNG vérifiée avant installation de l'icône" || t_fail "icône non vérifiée"
+grep -q 'Education;Development' "$S4" && t_fail "plusieurs catégories principales (doublon de menu)" || t_ok "une seule catégorie principale"
+
+# Déclaration CLI/YAD + doc + README
+grep -q '4|04-install-hollama.sh' "$ROOT/config/p90.conf" && t_ok "étape 4 déclarée dans config/p90.conf" || t_fail "étape 4 non déclarée"
+if bash -c "source '$ROOT/lib/common.sh'; [[ \"\$(p90_check_script_of 4)\" == '04-install-hollama.sh' ]]"; then
+    t_ok "p90 check 4 résout le script de l'étape 4"
+else
+    t_fail "p90 check 4 ne résout pas le script de l'étape 4"
+fi
+D4="$ROOT/docs/etapes/04-hollama.md"
+if [[ -s "$D4" ]] && (( $(wc -l < "$D4") > 40 )); then
+    t_ok "doc étape 4 présente ($(wc -l < "$D4") lignes)"
+else
+    t_fail "doc étape 4 absente ou trop courte"
+fi
+grep -q '04-hollama.md' "$ROOT/README.md" && t_ok "README pointe la fiche étape 4" || t_fail "README ne pointe pas la fiche 4"
+
+
 
 # ---------------------------------------------------------------------------
 # Résumé
